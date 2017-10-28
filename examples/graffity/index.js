@@ -1,7 +1,7 @@
 import ARKitWrapper from '../../polyfill/platform/ARKitWrapper.js'
 import API from './mrs_api/src/api/index.js'
 
-const MRS_API = new API('http://localhost:3000');
+const MRS_API = new API('http://13.88.19.161:3000');
 
 const CUBE_SIZE = 0.1;
 
@@ -23,6 +23,9 @@ class App {
         this.orientation = null;
         this.fixOrientationMatrix = new THREE.Matrix4();
         this.orientationAngle = 0;
+
+        this.protos = {};
+
     }
 
     initAR() {
@@ -48,49 +51,56 @@ class App {
             }
         }).then(this.onARInit.bind(this));
 
-        const swiperWrapper = document.getElementsByClassName('swiper-wrapper')[0];
-        const protos = {};
-
-        const loader = new THREE.GLTFLoader();
-        let mesh;
-
-        function getGallery() {
-          MRS_API.getGalleries(1)
-          .then((res) => {
-            return res
-          })
-          .then(gallery => gallery[0].id)
-          .then(id => MRS_API.getGalleryModels(id, 1))
-          .then(models => models.forEach(model => {
-            let swiperSlide = document.createElement('div');
-            swiperSlide.addClass('swiper-slide');
-            let div = document.createElement('div');
-            div.addClass('imageHolder');
-            div.style.backgroundImage = `url(${model.Model.thumbPath})`;
-            div.setAttribute('modelId', model.modelId);
-            swiperSlide.appendChild(div);
-            swiperWrapper.appendChild(swiperSlide);
-          }))
-          .then(model => MRS_API.getModel(model[0].modelId))
-          .then(res => loader.load(res, (gltf) => {
-            const meshes = gltf.meshes;
-            mesh = new THREE.Mesh(meshes);
-            protos.push(mesh);
-          }))
-        };
+        // const swiperWrapper = document.getElementsByClassName('swiper-wrapper')[0];
+        //
+        // const loader = new THREE.GLTFLoader();
+        // let mesh;
+        //
+        // function getGallery() {
+        //   MRS_API.getGalleries(1)
+        //   .then((res) => {
+        //     return res
+        //   })
+        //   .then(gallery => gallery[0].id)
+        //   .then(id => MRS_API.getGalleryModels(id, 1))
+        //   .then(models => {
+        //     models.forEach(model => {
+        //     let swiperSlide = document.createElement('div');
+        //     swiperSlide.classList.add('swiper-slide');
+        //     let div = document.createElement('div');
+        //     div.classList.add('imageHolder');
+        //     div.style.backgroundImage = `url(${MRS_API.url}${model.Model.thumbPath})`;
+        //     console.log(`url(${MRS_API.url}${model.Model.thumbPath})`)
+        //     div.setAttribute('modelId', model.modelId);
+        //     swiperSlide.appendChild(div);
+        //     swiperWrapper.appendChild(swiperSlide);
+        //   })
+        //     return models;
+        //   }
+        // )
+        //   .then(models => {
+        //     let model = models[0];
+        //     let url = MRS_API.url + '/' + model.Model.modelPath;
+        //     loader.load(url, (gltf) => {
+        //       const meshes = gltf.meshes;
+        //       let mesh = new THREE.Mesh(meshes);
+        //       this.protos[model.modelId] = mesh;
+        //     });
+        //   });
+        // };
 
         if (window.localStorage.apiKey) {
           let userAndLayer = MRS_API.getUser(window.localStorage.apiKey)
             .then((res, rej) => {
               this.dataOfUser = res;
-              getGallery();
+              this.getGallery();
             });
         } else {
           let userAndLayer = MRS_API.createUser({ username: 'test', email: 'mail@test.com' })
             .then((res, rej) => {
               window.localStorage.setItem('apiKey', MRS_API.apiKey);
               this.dataOfUser = res;
-              getGallery();
+              this.getGallery();
             })
         };
 
@@ -200,6 +210,37 @@ class App {
         this.ar.addEventListener(ARKitWrapper.ORIENTATION_CHANGED_EVENT, e => {
             this.updateOrientation(e.detail.orientation);
         });
+    }
+
+    getGallery() {
+      const swiperWrapper = document.getElementsByClassName('swiper-wrapper')[0];
+      const loader = new THREE.GLTFLoader();
+      MRS_API.getGalleries(1).then((res) => {
+        return res;
+      }).then(gallery => gallery[0].id).then(id => MRS_API.getGalleryModels(id, 1)).then(models => {
+        models.forEach(model => {
+          console.log('model', model);
+          let swiperSlide = document.createElement('div');
+          swiperSlide.classList.add('swiper-slide');
+          let div = document.createElement('div');
+          div.classList.add('imageHolder');
+          let url = MRS_API.url + '/' + model.Model.thumbPath;
+          url = 'img/thumb.png';
+          div.style.backgroundImage = 'url(' + url + ')';
+          div.setAttribute('modelId', model.modelId);
+          swiperSlide.appendChild(div);
+          swiperWrapper.appendChild(swiperSlide);
+        });
+        return models;
+      }).then(models => {
+        let model = models[0];
+        let url = MRS_API.url + '/' + model.Model.modelPath;
+        loader.load(url, (gltf) => {
+          const meshes = gltf.scene.children[0];
+          let mesh = new THREE.Mesh(meshes);
+          this.protos[model.modelId] = mesh;
+        });
+      });
     }
 
     updateOrientation(orientation) {

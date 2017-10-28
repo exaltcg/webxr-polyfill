@@ -13,10 +13,12 @@ export default class API {
   fetch(url, fetchData) {
     const headers = {
       headers: {
-        "x-access-token": this.token || null,
         "Content-Type": "application/json"
       },
     };
+    if (window.localStorage.apiKey) {
+      headers.headers["x-access-token"] = window.localStorage.apiKey;
+    }
     const fd = Object.assign({}, fetchData, headers);
     return fetch(`${this.url}${url}`, fd)
       .then(res => {
@@ -36,7 +38,11 @@ export default class API {
 
   //GET /layer/:id
   getLayerById(id) {
-    const { error } = Joi.validate({ id }, schema.getLayerById);
+    const {
+      error
+    } = Joi.validate({
+      id
+    }, schema.getLayerById);
 
     if (error) {
       return error;
@@ -49,7 +55,11 @@ export default class API {
 
   //GET /layer
   getLayers(page) {
-    const { error } = Joi.validate({ page }, schema.getLayers);
+    const {
+      error
+    } = Joi.validate({
+      page
+    }, schema.getLayers);
 
     if (error) {
       return error;
@@ -60,40 +70,46 @@ export default class API {
   }
 
   //GET /layer/:id/anchor
-    getLayersAnchors(option) {
-      const { error } = Joi.validate({ option }, schema.getLayersAnchor);
+  getLayersAnchors(option) {
+    const {
+      error
+    } = Joi.validate({
+      option
+    }, schema.getLayersAnchor);
 
-      if (error) {
-        return error;
-      }
-
-      if ( option.latitude && option.longitude && option.elevation) {
-        const qs = {
-          latitude: option.latitude,
-          longitude: option.longitude,
-          elevation: option.elevation,
-          radius: option.radius,
-          page: option.page,
-        };
-
-        let esc = encodeURIComponent;
-        const query = Object.keys(qs)
-          .map(k => esc(k) + '=' + esc(qs[k]))
-          .join('&');
-        const url = `/layer/${option.id}/anchor/?${query}`;
-
-        return this.fetch(url);
-      } else {
-        const url = `/layer/${option.id}/anchor/?page=${option.page}`;
-
-        return this.fetch(url);
-      }
+    if (error) {
+      return error;
     }
+
+    if (option.latitude && option.longitude && option.elevation) {
+      const qs = {
+        latitude: option.latitude,
+        longitude: option.longitude,
+        elevation: option.elevation,
+        radius: option.radius,
+        page: option.page,
+      };
+
+      let esc = encodeURIComponent;
+      const query = Object.keys(qs)
+        .map(k => esc(k) + '=' + esc(qs[k]))
+        .join('&');
+      const url = `/layer/${option.id}/anchor/?${query}`;
+
+      return this.fetch(url);
+    } else {
+      const url = `/layer/${option.id}/anchor/?page=${option.page}`;
+
+      return this.fetch(url);
+    }
+  }
 
   // POST /layer/:id/anchor
   createAnchor(option) {
 
-    const { error } = Joi.validate(option, schema.createAnchor);
+    const {
+      error
+    } = Joi.validate(option, schema.createAnchor);
 
     if (error) {
       return error;
@@ -110,7 +126,9 @@ export default class API {
 
   // POST /anchor/:id/model-pose
   createObject(option) {
-    const { error } = Joi.validate(option, schema.createObject);
+    const {
+      error
+    } = Joi.validate(option, schema.createObject);
 
     if (error) {
       return error;
@@ -126,7 +144,11 @@ export default class API {
 
   //GET /anchor/:id
   getAnchorById(id) {
-    const { error } = Joi.validate({ id }, schema.getAnchorById);
+    const {
+      error
+    } = Joi.validate({
+      id
+    }, schema.getAnchorById);
 
     if (error) {
       return error;
@@ -138,7 +160,12 @@ export default class API {
 
   //GET /anchor/:id/model-pose
   getAnchorsModels(id, page) {
-    const { error } = Joi.validate({ id, page }, schema.getAnchorsModels);
+    const {
+      error
+    } = Joi.validate({
+      id,
+      page
+    }, schema.getAnchorsModels);
 
     if (error) {
       return error;
@@ -150,7 +177,9 @@ export default class API {
 
   //PUT /anchor/:id/model-pose/:modelPoseId
   updateObject(option) {
-    const { error } = Joi.validate(option, schema.updateObject);
+    const {
+      error
+    } = Joi.validate(option, schema.updateObject);
 
     if (error) {
       return error;
@@ -159,14 +188,21 @@ export default class API {
     const url = `/anchor/${option.id}/model-pose/${option.modelPoseId}`;
     const fetchData = {
       method: 'put',
-      body: JSON.stringify({ transform: option.transform }),
+      body: JSON.stringify({
+        transform: option.transform
+      }),
     };
     return this.fetch(url, fetchData);
   }
 
   //DELETE /anchor/:id/models/:objectId
   deleteObject(id, modelPoseId) {
-    const { error } = Joi.validate({ id, modelPoseId }, schema.deleteObject);
+    const {
+      error
+    } = Joi.validate({
+      id,
+      modelPoseId
+    }, schema.deleteObject);
 
     if (error) {
       return error;
@@ -181,7 +217,11 @@ export default class API {
 
   //GET /gallery
   getGalleries(page) {
-    const { error } = Joi.validate({ page }, schema.getGalleries);
+    const {
+      error
+    } = Joi.validate({
+      page
+    }, schema.getGalleries);
 
     if (error) {
       return error;
@@ -193,7 +233,12 @@ export default class API {
 
   //GET /gallery/:id
   getGalleryModels(id, page) {
-    const { error } = Joi.validate({ id, page }, schema.getGalleryModels);
+    const {
+      error
+    } = Joi.validate({
+      id,
+      page
+    }, schema.getGalleryModels);
 
     if (error) {
       return error;
@@ -205,7 +250,9 @@ export default class API {
 
   //POST /account
   createUser(options) {
-    const { error } = Joi.validate(options, schema.createUser);
+    const {
+      error
+    } = Joi.validate(options, schema.createUser);
 
     if (error) {
       return error;
@@ -228,7 +275,11 @@ export default class API {
 
   //GET /account
   getUser(token) {
-    const { error } = Joi.validate({ token }, schema.getUser);
+    const {
+      error
+    } = Joi.validate({
+      token
+    }, schema.getUser);
 
     if (error) {
       return error;
@@ -240,7 +291,11 @@ export default class API {
 
   //GET /account/:id
   getUserById(id) {
-    const { error } = Joi.validate({ id }, schema.getUserById);
+    const {
+      error
+    } = Joi.validate({
+      id
+    }, schema.getUserById);
 
     if (error) {
       return error;
@@ -252,7 +307,11 @@ export default class API {
 
   //GET /model/:id/model
   getModel(id) {
-    const { error } = Joi.validate({ id }, schema.getModel);
+    const {
+      error
+    } = Joi.validate({
+      id
+    }, schema.getModel);
 
     if (error) {
       return error;
@@ -264,7 +323,11 @@ export default class API {
 
   //GET /model/:id
   getModelData(id) {
-    const { error } = Joi.validate({ id }, schema.getModel);
+    const {
+      error
+    } = Joi.validate({
+      id
+    }, schema.getModel);
 
     if (error) {
       return error;
