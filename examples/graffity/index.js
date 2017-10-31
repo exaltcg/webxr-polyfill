@@ -324,13 +324,19 @@ class App {
 
         this.camera.matrixAutoUpdate = false;
 
-        /*@todo remove this cube */
+        /*@todo remove this cube and axis */
         const cubeMesh = this.createCube('cube1');
         cubeMesh.position.set(0, 1, 0);
         cubeMesh.scale.set(10, 5, 1);
         this.scene.add(cubeMesh);
         this.cubeMesh = cubeMesh;
         this.cubesNum++;
+        const axis = new THREE.AxisHelper(100);
+        axis.name = 'axis';
+        this.scene.add(axis);
+        this.axis = axis;
+        cubeMesh.matrixAutoUpdate = false;
+        axis.matrixAutoUpdate = false;
 
         this.fpsStats = new Stats();
         this.fpsStats.setMode(0);
