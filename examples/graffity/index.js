@@ -1,5 +1,6 @@
 import ARKitWrapper from '../../polyfill/platform/ARKitWrapper.js'
 import EditControls from './EditControls.js'
+import GeoConverter from './GeoConverter.js'
 import API from './mrs_api/src/api/index.js'
 
 const MRS_URL = 'http://13.88.19.161:3000';
@@ -15,6 +16,7 @@ class App {
         this.isDebug = false;
         this.isGalleryLoaded = false;
         this.deviceId = null;
+        this.geoConverter = new GeoConverter();
 
         this.orientation = null;
         this.fixOrientationMatrix = new THREE.Matrix4();
@@ -321,6 +323,14 @@ class App {
         this.camera.add(light);
 
         this.camera.matrixAutoUpdate = false;
+
+        /*@todo remove this cube */
+        const cubeMesh = this.createCube('cube1');
+        cubeMesh.position.set(0, 1, 0);
+        cubeMesh.scale.set(10, 5, 1);
+        this.scene.add(cubeMesh);
+        this.cubeMesh = cubeMesh;
+        this.cubesNum++;
 
         this.fpsStats = new Stats();
         this.fpsStats.setMode(0);
