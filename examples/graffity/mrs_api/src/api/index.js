@@ -64,7 +64,7 @@ export default class API {
 
   //GET /layer/:id/anchor
     getLayersAnchors(option) {
-      const { error } = Joi.validate({ option }, schema.getLayersAnchor);
+      const { error } = Joi.validate(option, schema.getLayersAnchor);
 
       if (error) {
         return error;

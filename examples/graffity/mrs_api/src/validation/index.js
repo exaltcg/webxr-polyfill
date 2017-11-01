@@ -12,6 +12,10 @@ const schema = {
   getLayersAnchor: {
     id: Joi.string().required(),
     page: Joi.number().integer().required(),
+    latitude: Joi.number().required(),
+    longitude: Joi.number().required(),
+    elevation: Joi.number().required(),
+    radius: Joi.number().required()
   },
 
   createAnchor: {

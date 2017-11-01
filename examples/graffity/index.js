@@ -205,11 +205,6 @@ class App {
         objPos.add(this.raycaster.ray.direction);
         let transform = new THREE.Matrix4();
         transform.makeTranslation(objPos.x, objPos.y, objPos.z);
-        transform.scale(new THREE.Vector3(0.1, 0.1, 0.1));
-
-        let fixRotationMatrix = new THREE.Matrix4();
-        fixRotationMatrix.makeRotationX(-Math.PI / 2);
-        transform.multiply(fixRotationMatrix);
 
         transform = transform.toArray();
         transform = this.ar.createARMatrix(transform);
@@ -235,26 +230,69 @@ class App {
             page: 1
         })
         .then(anchors => {
-            anchors.forEach(anchor => {
-                this.addLoadedAnchor(anchor);
+            return anchors.map(anchor => {
+                console.log('anchor', anchor);
+                return {
+                    id: anchor.id,
+                    latitude: anchor.latitude,
+                    longitude: anchor.longitude,
+                    elevation: anchor.elevation
+                };
             });
+        }).then(anchors => {
+            anchors.forEach(anchor => {
+                MRS_API.getAnchorsModels(anchor.id, 1).then(objects => {
+                    this.addLoadedAnchorWithObjects(anchor, objects);
+                });
+            });
+
         });
     }
 
-    addAnchorByPosition(position) {
+    onARAddLoadedAnchorWithObjects(info, anchor, objects) {
+        console.log('loaded anchor is added to arkit', anchor, objects);
+        let anchorObj = new THREE.Object3D();
+        anchorObj.userData.type = 'anchor';
+        anchorObj.userData.anchorId = anchor.id;
+        anchorObj.matrixAutoUpdate = false;
+        anchorObj.matrix.fromArray(this.ar.flattenARMatrix(info.transform));
+        anchorObj.name = info.uuid;
+
+        objects.forEach(object => {
+            let mesh = this.protos[object.model.id];
+            if (!mesh) {
+                return;
+            }
+            mesh = mesh.clone(true);
+            mesh.matrixAutoUpdate = false;
+            mesh.userData.modelId = object.model.id;
+            mesh.userData.type = 'pose';
+            mesh.userData.anchorId = anchor.id;
+            mesh.userData.poseId = object.id;
+
+            mesh.matrix.copy(object.transform);
+
+            anchorObj.add(mesh);
+            this.cubesNum++;
+        });
+
+        this.scene.add(anchorObj);
+        this.getPickableMeshes(true);
+        this.requestAnimationFrame();
+    }
+
+    addLoadedAnchorWithObjects(anchor, objects) {
+        let position = this.geoConverter.llaToEastUpSouth(anchor.longitude, anchor.latitude, anchor.elevation);
+
         let transform = new THREE.Matrix4();
         transform.makeTranslation(position.x, position.y, position.z);
         transform = transform.toArray();
         transform = this.ar.createARMatrix(transform);
+
         this.ar.addAnchor(
             null,
             transform
-        ).then(info => this.onARAddObject(info));
-    }
-
-    addLoadedAnchor(anchor) {
-        let position = this.geoConverter.llaToEastUpSouth(anchor.lon, anchor.lat, anchor.elevation);
-        this.addAnchorByPosition(position);
+        ).then(info => this.onARAddLoadedAnchorWithObjects(info, anchor, objects));
     }
 
     getGallery() {
@@ -412,7 +450,7 @@ class App {
 
         document.querySelector('#message').onclick = function() {
             this.style.display = 'none';
-        }
+        };
         
         this.editControls = new EditControls(this);
     }
@@ -509,17 +547,18 @@ class App {
     }
 
   updateMRSPosition(mesh) {
-        let transform = mesh.matrix.toArray();
         return MRS_API.updateObject({
             id: mesh.userData.anchorId,
             modelPoseId: mesh.userData.poseId,
-            transform: transform
+            transform: mesh.matrix.toArray()
         });
     }
 
     createMRSAnchorAndPosition(mesh) {
+        let anchorObj = mesh.parent;
         let position = new THREE.Vector3();
-        position.setFromMatrixPosition(mesh.matrix);
+        position.setFromMatrixPosition(anchorObj.matrix);
+
         let lla = this.geoConverter.eastUpSouthToLla(position.x, position.y, position.z);
 
         return MRS_API.createAnchor({
@@ -531,11 +570,12 @@ class App {
         }).then(anchor => {
             return MRS_API.createObject({
                 modelId: mesh.userData.modelId,
-                transform: (new THREE.Matrix4()).toArray(),
+                transform: mesh.matrix.toArray(),
                 id: anchor.id
             });
         }).then(pose => {
             console.log('pose and anchor are created', pose);
+            anchorObj.userData.anchorId = pose.anchorId;
             mesh.userData.anchorId = pose.anchorId;
             mesh.userData.poseId = pose.id;
         });
@@ -546,15 +586,30 @@ class App {
         if (!mesh) {
             return;
         }
+        let anchorObj = new THREE.Object3D();
+        anchorObj.userData.type = 'anchor';
+        anchorObj.matrixAutoUpdate = false;
+        anchorObj.matrix.fromArray(this.ar.flattenARMatrix(info.transform));
+        anchorObj.name = info.uuid;
+
         mesh = mesh.clone(true);
-        mesh.name = info.uuid;
         mesh.matrixAutoUpdate = false;
-        mesh.matrix.fromArray(this.ar.flattenARMatrix(info.transform));
         mesh.userData.modelId = modelId;
+        mesh.userData.type = 'pose';
+
+        //@todo temporary fix model orientation and scale: instead all models should be properly prepared
+        let meshTransform = new THREE.Matrix4();
+        meshTransform.scale(new THREE.Vector3(0.1, 0.1, 0.1));
+        let meshFixRotationMatrix = new THREE.Matrix4();
+        meshFixRotationMatrix.makeRotationX(-Math.PI / 2);
+        meshTransform.multiply(meshFixRotationMatrix);
+        mesh.matrix.copy(meshTransform);
+
+        anchorObj.add(mesh);
 
         this.createMRSAnchorAndPosition(mesh);
 
-        this.scene.add(mesh);
+        this.scene.add(anchorObj);
         this.cubesNum++;
 
         this.getPickableMeshes(true);
@@ -660,7 +715,7 @@ class App {
     }
     getObjectFirstParent(obj) {
         if (obj.parent.type == 'Scene') {
-            return obj;
+            return obj.children.length ? obj.children[0] : obj;
         }
         return this.getObjectFirstParent(obj.parent);
     }
