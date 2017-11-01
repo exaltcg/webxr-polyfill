@@ -48,7 +48,8 @@ class webkitSimulatorMessageHandler {
                         this.data.location = {};
                         this.data.location.latitude = pos.coords.latitude;
                         this.data.location.longitude = pos.coords.longitude;
-                        
+                        this.data.location.altitude = 0;
+
                         this.data.camera = {};
 
                         this.data.camera.projectionCamera = {
@@ -65,6 +66,7 @@ class webkitSimulatorMessageHandler {
                         };
                         
                         console.log('this.data', this.data);
+                        window.arUpdateLocation(this.data);
                         window[data.callback](this.data);
                     },
                     err => {
