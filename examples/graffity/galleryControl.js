@@ -21,28 +21,8 @@
             moving = true;
         },
         onTap: function(swiper, e) {
-            window.app.raycaster.setFromCamera(
-                {x: 0, y: 0},
-                window.app.camera
-            );
-            let objPos = window.app.raycaster.ray.origin.clone();
-            objPos.add(window.app.raycaster.ray.direction);
-            let transform = new THREE.Matrix4();
-            transform.makeTranslation(objPos.x, objPos.y, objPos.z);
-
-            transform.scale(new THREE.Vector3(0.1, 0.1, 0.1));
-            let fixRotationMatrix = new THREE.Matrix4();
-            fixRotationMatrix.makeRotationX(-Math.PI / 2);
-            transform.multiply(fixRotationMatrix);
-
-            transform = transform.toArray();
-            transform = window.app.ar.createARMatrix(transform);
-
             let modelId = e.target.getAttribute('modelid');
-            window.app.ar.addAnchor(
-                null,
-                transform
-            ).then(info => window.app.onARAddObject(info, modelId));
+            window.app.addNewAnchor(modelId);
         },
         onTouchEnd: function(swiper, e) {
             moving = false;

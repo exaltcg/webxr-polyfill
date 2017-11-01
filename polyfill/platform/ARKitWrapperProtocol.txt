@@ -155,7 +155,7 @@ Heading {
 }
 
 Location {
-   altitude: double!
+   latitude: double!
    longitude: double!
    altitude: double?
 }

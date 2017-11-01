@@ -20,7 +20,7 @@ export default class GeoConverter {
         );
     }
 
-    llaToEcef(latitude, longitude, elevation) {
+    llaToEcef(longitude, latitude, elevation) {
         let ecef = Cesium.Cartesian3.fromDegrees(longitude, latitude, elevation);
         return {
             x: ecef.x,
@@ -81,7 +81,17 @@ export default class GeoConverter {
             x: ecef.x,
             y: ecef.y,
             z: ecef.z
-        }
+        };
+    }
+
+    llaToEastUpSouth(longitude, latitude, elevation) {
+        let ecef = Cesium.Cartesian3.fromDegrees(longitude, latitude, elevation);
+        return this.ecefToEastUpSouth(ecef.x, ecef.y, ecef.z);
+    }
+
+    eastUpSouthToLla(x, y, z) {
+        let ecef = this.eastUpSouthToEcef(x, y, z);
+        return this.ecefToLla(ecef.x, ecef.y, ecef.z);
     }
 
     obtainEastUpSouthToFixedFrameMatrix(originX, originY, originZ) {

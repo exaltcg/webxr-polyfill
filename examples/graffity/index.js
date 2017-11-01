@@ -15,6 +15,7 @@ class App {
         
         this.isDebug = false;
         this.isGalleryLoaded = false;
+        this.isObjectsLoaded = false;
         this.deviceId = null;
         this.geoConverter = new GeoConverter();
 
@@ -33,8 +34,6 @@ class App {
 
         this.raycaster = new THREE.Raycaster();
         this.registerUIEvents();
-
-        // this.run();
     }
     run() {
         let render = (time) => {
@@ -49,6 +48,9 @@ class App {
             case EditControls.MODE_VIEW:
                 document.querySelector('#removeObject').style.display = 'none';
                 document.querySelector('#rotate').style.display = 'none';
+                if (this.editControls.pickedMesh) {
+                    this.updateMRSPosition(this.editControls.pickedMesh);
+                }
                 break;
             case EditControls.MODE_EDIT_TRANSLATE:
                 document.querySelector('#removeObject').style.display = '';
@@ -57,8 +59,12 @@ class App {
         }
     }
     removePickedMesh() {
+        const userData = this.editControls.pickedMesh.userData;
         this.editControls.removePickedMesh();
         this.getPickableMeshes(true);
+        if (userData.anchorId && userData.poseId) {
+            MRS_API.deleteObject(userData.anchorId, userData.poseId);
+        }
     }
     initAR() {
         this.ar = ARKitWrapper.GetOrCreate();
@@ -161,31 +167,21 @@ class App {
         });
 
         this.ar.addEventListener(ARKitWrapper.LOCATION_UPDATED_EVENT, (e) => {
-            /*
-            let location = false;
-            function getLayerAndAnchors(data) {
-                location = true;
-
-                const layersAnchors = MRS_API.getLayersAnchors({
-                    id: data.layer.id,
-                    latitude: e.latitude,
-                    longitude: e.longitude,
-                    elevation: e.altitude,
-                    page: 1
-                })
-                .then((res, rej) => res)
-                .then((anchors) => {
-                    const models = anchors.map((anchor) => {
-                        return MRS_API.getAnchorsModels(anchor.id, 1);
-                    });
-                });
-
-            };
-
-            if (!location && this.dataOfUser) {
-                getLayerAndAnchors(this.dataOfUser);
-            };
-            */
+            if (this.isObjectsLoaded) {
+                return;
+            }
+            this.isObjectsLoaded = true;
+            var self = this;
+            function getLayerAndAnchors(location) {
+                if (self.dataOfUser) {
+                    self.loadMRSObjects(location);
+                } else {
+                    setTimeout(() => {
+                        getLayerAndAnchors(location)
+                    }, 200);
+                }
+            }
+            getLayerAndAnchors(e.detail.location);
         });
 
         this.ar.addEventListener(ARKitWrapper.SHOW_DEBUG_EVENT, e => {
@@ -198,6 +194,67 @@ class App {
         this.ar.addEventListener(ARKitWrapper.ORIENTATION_CHANGED_EVENT, e => {
             this.updateOrientation(e.detail.orientation);
         });
+    }
+
+    addNewAnchor(modelId) {
+        this.raycaster.setFromCamera(
+            {x: 0, y: 0},
+            this.camera
+        );
+        let objPos = this.raycaster.ray.origin.clone();
+        objPos.add(this.raycaster.ray.direction);
+        let transform = new THREE.Matrix4();
+        transform.makeTranslation(objPos.x, objPos.y, objPos.z);
+        transform.scale(new THREE.Vector3(0.1, 0.1, 0.1));
+
+        let fixRotationMatrix = new THREE.Matrix4();
+        fixRotationMatrix.makeRotationX(-Math.PI / 2);
+        transform.multiply(fixRotationMatrix);
+
+        transform = transform.toArray();
+        transform = this.ar.createARMatrix(transform);
+
+        this.ar.addAnchor(
+            null,
+            transform
+        ).then(info => this.onARAddNewObject(info, modelId));
+    }
+
+    loadMRSObjects(location) {
+        this.geoConverter.setOriginFromDegrees(
+            location.longitude,
+            location.latitude,
+            location.altitude
+        );
+        const layersAnchors = MRS_API.getLayersAnchors({
+            id: this.dataOfUser.layer.id,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            elevation: location.altitude,
+            radius: 100,
+            page: 1
+        })
+        .then(anchors => {
+            anchors.forEach(anchor => {
+                this.addLoadedAnchor(anchor);
+            });
+        });
+    }
+
+    addAnchorByPosition(position) {
+        let transform = new THREE.Matrix4();
+        transform.makeTranslation(position.x, position.y, position.z);
+        transform = transform.toArray();
+        transform = this.ar.createARMatrix(transform);
+        this.ar.addAnchor(
+            null,
+            transform
+        ).then(info => this.onARAddObject(info));
+    }
+
+    addLoadedAnchor(anchor) {
+        let position = this.geoConverter.llaToEastUpSouth(anchor.lon, anchor.lat, anchor.elevation);
+        this.addAnchorByPosition(position);
     }
 
     getGallery() {
@@ -256,12 +313,14 @@ class App {
             MRS_API.getUser(window.localStorage.apiKey)
                 .then((res) => {
                     this.dataOfUser = res;
+                    this.dataOfUser.layer = {id: window.localStorage.layerId};
                     this.getGallery();
                 });
         } else {
             MRS_API.createUser({ username: 'test', email: 'mail@test.com' })
                 .then((res) => {
                     window.localStorage.setItem('apiKey', MRS_API.apiKey);
+                    window.localStorage.setItem('layerId', res.layer.id);
                     this.dataOfUser = res;
                     this.getGallery();
                 })
@@ -323,20 +382,6 @@ class App {
         this.camera.add(light);
 
         this.camera.matrixAutoUpdate = false;
-
-        /*@todo remove this cube and axis */
-        const cubeMesh = this.createCube('cube1');
-        cubeMesh.position.set(0, 1, 0);
-        cubeMesh.scale.set(10, 5, 1);
-        this.scene.add(cubeMesh);
-        this.cubeMesh = cubeMesh;
-        this.cubesNum++;
-        const axis = new THREE.AxisHelper(100);
-        axis.name = 'axis';
-        this.scene.add(axis);
-        this.axis = axis;
-        cubeMesh.matrixAutoUpdate = false;
-        axis.matrixAutoUpdate = false;
 
         this.fpsStats = new Stats();
         this.fpsStats.setMode(0);
@@ -462,6 +507,60 @@ class App {
             transform
         ).then(info => this.onARAddObject(info));
     }
+
+  updateMRSPosition(mesh) {
+        let transform = mesh.matrix.toArray();
+        return MRS_API.updateObject({
+            id: mesh.userData.anchorId,
+            modelPoseId: mesh.userData.poseId,
+            transform: transform
+        });
+    }
+
+    createMRSAnchorAndPosition(mesh) {
+        let position = new THREE.Vector3();
+        position.setFromMatrixPosition(mesh.matrix);
+        let lla = this.geoConverter.eastUpSouthToLla(position.x, position.y, position.z);
+
+        return MRS_API.createAnchor({
+            layerId: this.dataOfUser.layer.id,
+            orientation: (new THREE.Matrix4()).toArray(),
+            lat: lla.latitude,
+            lon: lla.longitude,
+            elevation: lla.elevation
+        }).then(anchor => {
+            return MRS_API.createObject({
+                modelId: mesh.userData.modelId,
+                transform: (new THREE.Matrix4()).toArray(),
+                id: anchor.id
+            });
+        }).then(pose => {
+            console.log('pose and anchor are created', pose);
+            mesh.userData.anchorId = pose.anchorId;
+            mesh.userData.poseId = pose.id;
+        });
+    }
+
+    onARAddNewObject(info, modelId) {
+        let mesh = this.protos[modelId];
+        if (!mesh) {
+            return;
+        }
+        mesh = mesh.clone(true);
+        mesh.name = info.uuid;
+        mesh.matrixAutoUpdate = false;
+        mesh.matrix.fromArray(this.ar.flattenARMatrix(info.transform));
+        mesh.userData.modelId = modelId;
+
+        this.createMRSAnchorAndPosition(mesh);
+
+        this.scene.add(mesh);
+        this.cubesNum++;
+
+        this.getPickableMeshes(true);
+        this.requestAnimationFrame();
+    }
+
     onARAddObject(info, modelId) {
         let mesh;
         if (modelId) {
