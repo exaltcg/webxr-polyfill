@@ -173,7 +173,7 @@ class App {
             this.isObjectsLoaded = true;
             var self = this;
             function getLayerAndAnchors(location) {
-                if (self.dataOfUser) {
+                if (self.dataOfUser && self.isGalleryLoaded) {
                     self.loadMRSObjects(location);
                 } else {
                     setTimeout(() => {
@@ -231,7 +231,6 @@ class App {
         })
         .then(anchors => {
             return anchors.map(anchor => {
-                console.log('anchor', anchor);
                 return {
                     id: anchor.id,
                     latitude: anchor.latitude,
@@ -250,7 +249,9 @@ class App {
     }
 
     onARAddLoadedAnchorWithObjects(info, anchor, objects) {
-        console.log('loaded anchor is added to arkit', anchor, objects);
+        if (!objects.length) {
+            return;
+        }
         let anchorObj = new THREE.Object3D();
         anchorObj.userData.type = 'anchor';
         anchorObj.userData.anchorId = anchor.id;
@@ -270,7 +271,7 @@ class App {
             mesh.userData.anchorId = anchor.id;
             mesh.userData.poseId = object.id;
 
-            mesh.matrix.copy(object.transform);
+            mesh.matrix.fromArray(object.transform);
 
             anchorObj.add(mesh);
             this.cubesNum++;
@@ -283,7 +284,6 @@ class App {
 
     addLoadedAnchorWithObjects(anchor, objects) {
         let position = this.geoConverter.llaToEastUpSouth(anchor.longitude, anchor.latitude, anchor.elevation);
-
         let transform = new THREE.Matrix4();
         transform.makeTranslation(position.x, position.y, position.z);
         transform = transform.toArray();
@@ -308,7 +308,6 @@ class App {
             .then(models => {
                     models = [models[1]];
                     models.forEach(model => {
-                            console.log('model', model);
                             let swiperSlide = document.createElement('div');
                             swiperSlide.classList.add('swiper-slide');
                             let div = document.createElement('div');
@@ -574,7 +573,6 @@ class App {
                 id: anchor.id
             });
         }).then(pose => {
-            console.log('pose and anchor are created', pose);
             anchorObj.userData.anchorId = pose.anchorId;
             mesh.userData.anchorId = pose.anchorId;
             mesh.userData.poseId = pose.id;
