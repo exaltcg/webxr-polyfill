@@ -107,7 +107,7 @@ class webkitSimulatorMessageHandler {
                         return;
                     }
                     window[data.callback]('data callback simulator: ' + this.name);
-                }, 3000);
+                }, 100);
             }
         }
     }

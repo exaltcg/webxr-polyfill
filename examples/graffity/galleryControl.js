@@ -1,74 +1,73 @@
 (function() {
-    var moving = false;
-    document.addEventListener('touchmove', function(e) {
-        e.preventDefault();
-    });
-    var swiper = new Swiper('.swiper-container', {
-        slidesPerView: 6,
-        centeredSlides: false,
-        paginationClickable: false,
-        spaceBetween: 5,
-        setWrapperSize: true,
-        spaceBetween: 16.5,
-        direction: 'vertical',
-        slidesOffsetBefore: 5,
-        slidesOffsetAfter: 5,
-        roundLengths: true,
-        /**
-         @todo: prevent double tap
-         */
-        onSliderMove: function(swiper, e) {
-            moving = true;
-        },
-        onTap: function(swiper, e) {
-            window.app.raycaster.setFromCamera(
-                {x: 0, y: 0},
-                window.app.camera
-            );
-            let objPos = window.app.raycaster.ray.origin.clone();
-            objPos.add(window.app.raycaster.ray.direction);
-            let transform = new THREE.Matrix4();
-            transform.makeTranslation(objPos.x, objPos.y, objPos.z);
-
-            transform.scale(new THREE.Vector3(0.1, 0.1, 0.1));
-            let fixRotationMatrix = new THREE.Matrix4();
-            fixRotationMatrix.makeRotationX(-Math.PI / 2);
-            transform.multiply(fixRotationMatrix);
-
-            transform = transform.toArray();
-            transform = window.app.ar.createARMatrix(transform);
-
-            let modelId = e.target.getAttribute('modelid');
-            window.app.ar.addAnchor(
-                null,
-                transform
-            ).then(info => window.app.onARAddObject(info, modelId));
-        },
-        onTouchEnd: function(swiper, e) {
-            moving = false;
-        }
-    })
-}());
-
-window.onload = () => {
-  const galleryBtn = document.getElementById('galleryBtn');
-  const removeBtn = document.getElementById('removeObject');
-  const swiperContainer = document.getElementsByClassName('swiper-container')[0];
-
-  galleryBtn.addEventListener('click', e => {
-    let state = e.target.getAttribute('state');
-    if (state === 'true') {
-      e.target.setAttribute('state', false);
-      swiperContainer.style.visibility = 'visible';
-      e.target.style.backgroundImage = "url('./img/galleryActive.png')";
-    } else {
-      e.target.setAttribute('state', true);
-      swiperContainer.style.visibility = 'hidden';
-      e.target.style.backgroundImage = "url('./img/gallery.png')";
-    }
+  var moving = true;
+  document.addEventListener('touchmove', function (e) {
+    e.preventDefault();
   });
+  var swiper = new Swiper('.swiper-container', {
+    slidesPerView: 6,
+    centeredSlides: false,
+    setWrapperSize: true,
+    paginationClickable: false,
+    spaceBetween: 5,
+    direction: 'vertical',
+    slidesOffsetBefore: 5,
+    slidesOffsetAfter: 5,
+    shortSwipes: false,
+    allowTouchMove: false,
+    timer: 0,
+    touchedSlide: null,
+    roundLengths: true,
+    onDoubleTap(e) {
+      e.preventDefault();
+    },
+    onSliderMove: function (swiper, e) {
+    moving = false;
+    },
+    onTouchMove: function (swiper, e) {
+      const self = window.app;
+      const scene = self.scene;
 
-    removeBtn.addEventListener('click', e => {
-        window.app.removePickedMesh();
-    });
-};
+      scene.children.forEach((child, i) => {
+        if (child.name === 'planeForMesh') {
+          scene.remove(child);
+        }
+      });
+      self.requestAnimationFrame();
+
+      const timer = new Date();
+      if ((timer - this.timer) < 200) {
+        return;
+      }
+      this.timer = timer;
+      let normX = e.clientX / self.width;
+      let normY = e.clientY / self.height;
+      self.tapPos = { x: 2 * normX - 1, y: -2 * normY + 1 };
+      self.ar.hitTest(normX, normY).then(data => {
+        //self.onARHitTest(data);
+        const planes = data.planes;
+        planes.forEach(plane => {
+          self.addPlane(plane);
+        });
+      }).catch(e => e);
+    },
+    onTouchStart: function (swiper, e) {
+      this.touchedSlide = e.target;
+      this.touchedSlide.style.transitionDuration = '0.2s';
+      this.touchedSlide.style.opacity = 0;
+    },
+    onTouchEnd: function (swiper, e) {
+      const self = window.app;
+
+      this.touchedSlide.style.opacity = 1;
+      this.touchedSlide = null;
+
+      let normX = e.clientX / self.width;
+      let normY = e.clientY / self.height;
+      self.tapPos = { x: 2 * normX - 1, y: -2 * normY + 1 };
+      console.log(self.scene.children);
+      self.ar.hitTest(normX, normY).then(data => {
+        self.onARHitTest(data);
+      });
+    },
+  });
+}());

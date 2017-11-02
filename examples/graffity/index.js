@@ -1,5 +1,6 @@
 import ARKitWrapper from '../../polyfill/platform/ARKitWrapper.js'
 import EditControls from './EditControls.js'
+import UiControls from './UiControl.js'
 import API from './mrs_api/src/api/index.js'
 
 const MRS_URL = 'http://13.88.19.161:3000';
@@ -32,6 +33,7 @@ class App {
         this.raycaster = new THREE.Raycaster();
         this.registerUIEvents();
 
+        this.UiControls = new UiControls();
         // this.run();
     }
     run() {
@@ -215,6 +217,7 @@ class App {
                             let swiperSlide = document.createElement('div');
                             swiperSlide.classList.add('swiper-slide');
                             let div = document.createElement('div');
+                            div.setAttribute('draggable', true);
                             div.classList.add('imageHolder');
                             let url = MRS_URL + '/' + model.Model.thumbPath;
                             div.style.backgroundImage = `url('${url}')`;
@@ -234,16 +237,17 @@ class App {
                         mesh.scale.set(0.1, 0.1, 0.1);
                         mesh.rotation.set(0, 0, 0);
                         this.protos[model.modelId] = mesh;
-                        if (models.length == Object.keys(this.protos).length) {
+                        // if (models.length == Object.keys(this.protos).length) {
                             this.isGalleryLoaded = true;
                             this.onGalleryLoaded();
-                        }
+                        // }
                     });
                 }
             );
     }
     onGalleryLoaded() {
         this.hideMessage();
+        this.UiControls.init();
         document.querySelector('#ui').style.display = '';
         document.querySelector('.swiper-container').style.display = '';
         this.getPickableMeshes(true);
@@ -330,6 +334,27 @@ class App {
         document.body.appendChild(this.fpsStats.domElement);
     }
 
+    addPlane(coords) {
+        const {width, height, segment} = coords;
+        const geometry = new THREE.PlaneGeometry( width, height, segment, segment);
+        const material = new THREE.MeshBasicMaterial( {color: 0xff0000, side: THREE.DoubleSide, wireframe: true} );
+        const plane = new THREE.Mesh( geometry, material );
+        plane.name = 'planeForMesh';
+        plane.fromArray(this.ar.flattenARMatrix(coords.point.worldTransform));
+        this.scene.add(plane);
+    }
+    removePlane() {
+        let children = this.scene.children;
+        let plane = null;
+        for (let i = 0; i++; i < children.length) {
+            if (children[i].name === 'planeForMesh') {
+                plane = children[i];
+                continue;
+            }
+        }
+        this.scene.remove(plane);
+        return plane;
+    }
     cleanScene() {
         let children2Remove = [];
 
